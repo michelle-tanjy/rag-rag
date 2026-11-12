@@ -1,0 +1,7 @@
+{
+  "name": "TradingView Markets",
+  "description": "Global financial markets intelligence terminal featuring live market indices, interactive supercharts, sector heatmap, stock screener, and economic calendar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
