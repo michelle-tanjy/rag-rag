@@ -110,3 +110,53 @@ export interface HeatmapItem {
   price: number;
   volume: string;
 }
+
+export type ChartLayout = '1x1' | '1x2' | '2x1' | '2x2';
+
+export interface OrderBookLevel {
+  price: number;
+  size: number;
+  total: number;
+  depthPercent: number;
+}
+
+export interface TimeAndSale {
+  id: string;
+  time: string;
+  price: number;
+  size: number;
+  side: 'buy' | 'sell';
+}
+
+export interface VolumeProfileBar {
+  price: number;
+  volume: number;
+  widthPercent: number;
+  isPOC: boolean;
+  inValueArea: boolean;
+}
+
+export interface PriceAlert {
+  id: string;
+  symbol: string;
+  targetPrice: number;
+  condition: 'above' | 'below';
+  active: boolean;
+  createdAt: number;
+  triggeredAt?: string;
+  note?: string;
+}
+
+export interface IndicatorConfig {
+  showEMA20: boolean;
+  showEMA50: boolean;
+  showEMA200: boolean;
+  showBollinger: boolean;
+  showVWAP: boolean;
+  showSupertrend: boolean;
+  showVolumeProfile: boolean;
+  showVolume: boolean;
+  showRSI: boolean;
+  showMACD: boolean;
+}
+

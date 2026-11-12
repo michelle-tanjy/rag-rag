@@ -1,7 +1,7 @@
 import { MarketSymbol, SectorItem, EconomicEvent, MarketNewsItem, HeatmapItem, Candle } from '../types/market';
 
 // Helper to generate realistic candlestick data
-export function generateCandleSeries(basePrice: number, points: number = 50, volatility: number = 0.012): Candle[] {
+export function generateCandleSeries(basePrice: number, points: number = 60, volatility: number = 0.012): Candle[] {
   const candles: Candle[] = [];
   let currentClose = basePrice * (1 - volatility * (points / 4));
   const now = Date.now();
@@ -20,7 +20,6 @@ export function generateCandleSeries(basePrice: number, points: number = 50, vol
     
     const open = currentClose;
     let close = open + sinWave * 0.3 + noise * 0.4 + (trend * 0.1);
-    // ensure price stays positive
     close = Math.max(close, basePrice * 0.5);
     
     const high = Math.max(open, close) + Math.abs(noise * 0.5) + (basePrice * volatility * 0.2);
@@ -41,6 +40,156 @@ export function generateCandleSeries(basePrice: number, points: number = 50, vol
   }
   return candles;
 }
+
+// Generate Realistic Order Book Depth (Level 2 DOM)
+export function generateOrderBook(currentPrice: number, levels: number = 10): {
+  bids: { price: number; size: number; total: number; depthPercent: number }[];
+  asks: { price: number; size: number; total: number; depthPercent: number }[];
+  spread: number;
+} {
+  const tick = currentPrice > 1000 ? 1 : currentPrice > 100 ? 0.05 : 0.01;
+  const spread = tick;
+  const bestBid = currentPrice - spread / 2;
+  const bestAsk = currentPrice + spread / 2;
+
+  const bids = [];
+  let bidTotal = 0;
+  for (let i = 0; i < levels; i++) {
+    const price = Number((bestBid - i * tick).toFixed(currentPrice > 100 ? 2 : 4));
+    const size = Math.floor(50 + Math.random() * 800 + (levels - i) * 80);
+    bidTotal += size;
+    bids.push({ price, size, total: bidTotal, depthPercent: 0 });
+  }
+
+  const asks = [];
+  let askTotal = 0;
+  for (let i = 0; i < levels; i++) {
+    const price = Number((bestAsk + i * tick).toFixed(currentPrice > 100 ? 2 : 4));
+    const size = Math.floor(50 + Math.random() * 800 + (levels - i) * 80);
+    askTotal += size;
+    asks.push({ price, size, total: askTotal, depthPercent: 0 });
+  }
+
+  const maxTotal = Math.max(bidTotal, askTotal) || 1;
+  bids.forEach((b) => (b.depthPercent = (b.total / maxTotal) * 100));
+  asks.forEach((a) => (a.depthPercent = (a.total / maxTotal) * 100));
+
+  return { bids, asks, spread };
+}
+
+// Generate Live Time and Sales Tape
+export function generateTimeAndSales(currentPrice: number, count: number = 15) {
+  const tape = [];
+  const now = Date.now();
+  for (let i = 0; i < count; i++) {
+    const time = new Date(now - i * 1800).toTimeString().split(' ')[0];
+    const isBuy = Math.random() > 0.45;
+    const offset = (Math.random() - 0.5) * (currentPrice * 0.001);
+    const price = Number((currentPrice + offset).toFixed(currentPrice > 100 ? 2 : 4));
+    const size = Math.floor(10 + Math.random() * 450);
+    tape.push({
+      id: `trade-${now}-${i}`,
+      time,
+      price,
+      size,
+      side: isBuy ? ('buy' as const) : ('sell' as const),
+    });
+  }
+  return tape;
+}
+
+// Volume Profile (VPVR - Visible Range Volume Profile)
+export function calculateVolumeProfile(candles: Candle[], bins: number = 18) {
+  if (!candles.length) return [];
+  const minPrice = Math.min(...candles.map((c) => c.low));
+  const maxPrice = Math.max(...candles.map((c) => c.high));
+  const binSize = (maxPrice - minPrice) / bins || 1;
+
+  const profile = Array.from({ length: bins }, (_, i) => ({
+    price: Number((minPrice + (i + 0.5) * binSize).toFixed(2)),
+    volume: 0,
+    widthPercent: 0,
+    isPOC: false,
+    inValueArea: false,
+  }));
+
+  candles.forEach((c) => {
+    const avgPrice = (c.high + c.low + c.close) / 3;
+    const binIdx = Math.min(bins - 1, Math.max(0, Math.floor((avgPrice - minPrice) / binSize)));
+    profile[binIdx].volume += c.volume;
+  });
+
+  const maxVol = Math.max(...profile.map((p) => p.volume)) || 1;
+  const totalVol = profile.reduce((sum, p) => sum + p.volume, 0);
+
+  // Find Point of Control (POC - highest volume price)
+  let pocIdx = 0;
+  profile.forEach((p, i) => {
+    p.widthPercent = (p.volume / maxVol) * 100;
+    if (p.volume === maxVol) {
+      pocIdx = i;
+      p.isPOC = true;
+    }
+  });
+
+  // 70% Value Area
+  let accumulatedVol = profile[pocIdx].volume;
+  profile[pocIdx].inValueArea = true;
+  let upper = pocIdx + 1;
+  let lower = pocIdx - 1;
+
+  while (accumulatedVol < totalVol * 0.7 && (upper < bins || lower >= 0)) {
+    const upperVol = upper < bins ? profile[upper].volume : -1;
+    const lowerVol = lower >= 0 ? profile[lower].volume : -1;
+
+    if (upperVol >= lowerVol && upper < bins) {
+      accumulatedVol += profile[upper].volume;
+      profile[upper].inValueArea = true;
+      upper++;
+    } else if (lower >= 0) {
+      accumulatedVol += profile[lower].volume;
+      profile[lower].inValueArea = true;
+      lower--;
+    } else {
+      break;
+    }
+  }
+
+  return profile;
+}
+
+// Calculate Bollinger Bands
+export function calculateBollingerBands(candles: Candle[], period: number = 20, multiplier: number = 2) {
+  const upper: number[] = [];
+  const middle: number[] = [];
+  const lower: number[] = [];
+
+  for (let i = 0; i < candles.length; i++) {
+    const slice = candles.slice(Math.max(0, i - period + 1), i + 1);
+    const avg = slice.reduce((sum, c) => sum + c.close, 0) / slice.length;
+    const variance = slice.reduce((sum, c) => sum + Math.pow(c.close - avg, 2), 0) / slice.length;
+    const stdDev = Math.sqrt(variance);
+
+    middle.push(avg);
+    upper.push(avg + stdDev * multiplier);
+    lower.push(avg - stdDev * multiplier);
+  }
+
+  return { upper, middle, lower };
+}
+
+// Calculate VWAP (Volume Weighted Average Price)
+export function calculateVWAP(candles: Candle[]) {
+  let cumTypicalVol = 0;
+  let cumVol = 0;
+  return candles.map((c) => {
+    const typicalPrice = (c.high + c.low + c.close) / 3;
+    cumTypicalVol += typicalPrice * c.volume;
+    cumVol += c.volume;
+    return cumVol === 0 ? typicalPrice : cumTypicalVol / cumVol;
+  });
+}
+
 
 // Sparkline generator from candles
 function extractSparkline(candles: Candle[]): number[] {

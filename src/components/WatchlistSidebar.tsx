@@ -430,38 +430,93 @@ export const WatchlistSidebar: React.FC<WatchlistSidebarProps> = ({
               </div>
             </div>
 
-            {/* Quantity */}
-            <div className="flex items-center justify-between">
-              <span className="text-[#787b86]">Quantity:</span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setTradeQty(Math.max(1, tradeQty - 5))}
-                  className="w-7 h-7 bg-[#131722] border border-[#2a2e39] rounded text-[#d1d4dc] font-bold"
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  min="1"
-                  value={tradeQty}
-                  onChange={(e) => setTradeQty(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-16 text-center bg-[#131722] border border-[#2a2e39] rounded py-1 text-xs font-mono text-[#f0f3fa] focus:outline-none"
-                />
-                <button
-                  onClick={() => setTradeQty(tradeQty + 5)}
-                  className="w-7 h-7 bg-[#131722] border border-[#2a2e39] rounded text-[#d1d4dc] font-bold"
-                >
-                  +
-                </button>
+            {/* Quantity and Risk % presets */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[#787b86]">Quantity:</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setTradeQty(Math.max(1, tradeQty - 5))}
+                    className="w-7 h-7 bg-[#131722] border border-[#2a2e39] rounded text-[#d1d4dc] font-bold"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    value={tradeQty}
+                    onChange={(e) => setTradeQty(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-16 text-center bg-[#131722] border border-[#2a2e39] rounded py-1 text-xs font-mono text-[#f0f3fa] focus:outline-none"
+                  />
+                  <button
+                    onClick={() => setTradeQty(tradeQty + 5)}
+                    className="w-7 h-7 bg-[#131722] border border-[#2a2e39] rounded text-[#d1d4dc] font-bold"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Pro Risk Sizing Presets */}
+              <div className="flex items-center justify-between text-[11px] pt-1">
+                <span className="text-[#787b86]">Risk Auto-Size:</span>
+                <div className="flex items-center gap-1 font-mono">
+                  {[1, 2, 5].map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => {
+                        const riskAmount = accountBalance * (pct / 100);
+                        const calculatedQty = Math.max(1, Math.floor(riskAmount / (activeSymbol.price * 0.05 || 1)));
+                        setTradeQty(calculatedQty);
+                      }}
+                      className="px-2 py-0.5 bg-[#131722] hover:bg-[#2962ff] hover:text-white text-[#787b86] rounded border border-[#2a2e39] cursor-pointer"
+                    >
+                      {pct}%
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Cost Summary */}
-            <div className="pt-2 border-t border-[#2a2e39] flex justify-between font-mono text-xs">
-              <span className="text-[#787b86]">Estimated Total:</span>
-              <span className="font-bold text-[#f0f3fa]">
-                ${estimatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
+            {/* PRO Bracket Orders: TP & SL */}
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#2a2e39]">
+              <div>
+                <span className="text-[10px] text-[#089981] font-semibold block mb-0.5">
+                  Take Profit ($)
+                </span>
+                <input
+                  type="number"
+                  step="any"
+                  defaultValue={(activeSymbol.price * (tradeSide === 'buy' ? 1.06 : 0.94)).toFixed(2)}
+                  className="w-full bg-[#131722] border border-[#2a2e39] rounded px-2 py-1 text-[11px] font-mono text-[#089981] focus:outline-none"
+                />
+              </div>
+              <div>
+                <span className="text-[10px] text-[#f23645] font-semibold block mb-0.5">
+                  Stop Loss ($)
+                </span>
+                <input
+                  type="number"
+                  step="any"
+                  defaultValue={(activeSymbol.price * (tradeSide === 'buy' ? 0.97 : 1.03)).toFixed(2)}
+                  className="w-full bg-[#131722] border border-[#2a2e39] rounded px-2 py-1 text-[11px] font-mono text-[#f23645] focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Cost Summary & Risk-to-Reward Ratio */}
+            <div className="pt-2 border-t border-[#2a2e39] flex items-center justify-between font-mono text-xs">
+              <div>
+                <span className="text-[#787b86] text-[11px] block">Est. Cost:</span>
+                <span className="font-bold text-[#f0f3fa]">
+                  ${estimatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[#787b86] text-[11px] block">R:R Ratio:</span>
+                <span className="text-amber-400 font-bold">1 : 2.00</span>
+              </div>
             </div>
 
             <button
@@ -470,7 +525,7 @@ export const WatchlistSidebar: React.FC<WatchlistSidebarProps> = ({
                 tradeSide === 'buy' ? 'bg-[#089981] hover:bg-[#067a67]' : 'bg-[#f23645] hover:bg-[#c92534]'
               }`}
             >
-              Submit {tradeSide.toUpperCase()} Order
+              Submit {tradeSide.toUpperCase()} Bracket Order
             </button>
           </div>
 
